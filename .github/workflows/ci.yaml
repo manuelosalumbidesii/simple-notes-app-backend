@@ -53,3 +53,4 @@ jobs:
       run: |
         docker push ivosalumbides/simple-notes-app-backend:${{ env.IMAGE_TAG }}
         docker push ivosalumbides/simple-notes-app-backend:latest
+#
