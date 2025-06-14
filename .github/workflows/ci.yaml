@@ -32,9 +32,11 @@ jobs:
       run: |
         flake8 app.py
 
-    - name: Set Docker image tag
+    - name: Read version
       id: vars
-      run: echo "IMAGE_TAG=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_ENV
+      run: |
+        VERSION=$(cat version.txt)
+        echo "IMAGE_TAG=${VERSION}" >> $GITHUB_ENV
 
     - name: Build Docker image
       run: |
