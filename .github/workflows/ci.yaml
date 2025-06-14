@@ -45,4 +45,3 @@ jobs:
     - name: Push Docker image
       run: |
         docker push ivosalumbides/simple-notes-app-backend:latest
-#
