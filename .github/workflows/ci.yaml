@@ -1,4 +1,4 @@
-name: CI/CD - Backend
+name: Hybrid CI/CD - Backend (DockerHub + GitHub OCI)
 
 on:
   push:
@@ -27,35 +27,46 @@ jobs:
     - name: Lint code
       run: flake8 app.py
 
-    # Read version from git tags (autoversioning)
-    - name: Get version from git tags
-      id: get_version
+    # Generate version using GitHub Run Number
+    - name: Set Docker image tag
+      id: vars
       run: |
-        TAG=$(git describe --tags --abbrev=0 || echo "v0.0.0")
-        echo "Current version: $TAG"
-        echo "CURRENT_VERSION=${TAG}" >> $GITHUB_ENV
+        TAG="v1.0.${{ github.run_number }}"
+        echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
 
-    # Bump patch version automatically
-    - name: Bump patch version
-      id: bump_version
-      run: |
-        NEW_VERSION=$(echo ${{ env.CURRENT_VERSION }} | awk -F. -v OFS=. '{$NF += 1 ; print}')
-        echo "New version: $NEW_VERSION"
-        echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
-
-    # Build Docker image with new version
-    - name: Build Docker image
-      run: |
-        docker build -t ivosalumbides/simple-notes-app-backend:${{ env.NEW_VERSION }} .
-        docker tag ivosalumbides/simple-notes-app-backend:${{ env.NEW_VERSION }} ivosalumbides/simple-notes-app-backend:latest
-
+    ##########################
+    # DockerHub Section
+    ##########################
     - name: Login to DockerHub
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Push Docker image
+    - name: Build Docker Image (DockerHub)
       run: |
-        docker push ivosalumbides/simple-notes-app-backend:${{ env.NEW_VERSION }}
+        docker build -t ivosalumbides/simple-notes-app-backend:${{ env.IMAGE_TAG }} .
+        docker tag ivosalumbides/simple-notes-app-backend:${{ env.IMAGE_TAG }} ivosalumbides/simple-notes-app-backend:latest
+
+    - name: Push Docker Image (DockerHub)
+      run: |
+        docker push ivosalumbides/simple-notes-app-backend:${{ env.IMAGE_TAG }}
         docker push ivosalumbides/simple-notes-app-backend:latest
+
+    ##########################
+    # GitHub OCI Section
+    ##########################
+    - name: Login to GitHub OCI Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ secrets.GHCR_USERNAME }}
+        password: ${{ secrets.GH_PAT }}
+
+    - name: Tag & Push Docker Image (GitHub OCI)
+      run: |
+        IMAGE_NAME=ghcr.io/${{ secrets.GHCR_USERNAME }}/simple-notes-app-backend
+        docker tag ivosalumbides/simple-notes-app-backend:${{ env.IMAGE_TAG }} $IMAGE_NAME:${{ env.IMAGE_TAG }}
+        docker tag ivosalumbides/simple-notes-app-backend:${{ env.IMAGE_TAG }} $IMAGE_NAME:latest
+        docker push $IMAGE_NAME:${{ env.IMAGE_TAG }}
+        docker push $IMAGE_NAME:latest
