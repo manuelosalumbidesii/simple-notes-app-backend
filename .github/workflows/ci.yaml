@@ -1,4 +1,4 @@
-name: Hybrid CI/CD - Backend (DockerHub + GitHub OCI)
+name: Hybrid CI/CD - Backend (DockerHub + GitHub OCI) [Upgraded Phase 1]
 
 on:
   push:
@@ -10,33 +10,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    ##############################
+    # Checkout Code
+    ##############################
     - name: Checkout code
       uses: actions/checkout@v3
 
+    ##############################
+    # Setup Python
+    ##############################
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
 
+    ##############################
+    # Install Dependencies
+    ##############################
     - name: Install dependencies
       run: pip install -r requirements.txt
 
+    ##############################
+    # Unit Tests
+    ##############################
     - name: Run unit tests
       run: PYTHONPATH=. pytest
 
+    ##############################
+    # Linting with strict mode
+    ##############################
     - name: Lint code
-      run: flake8 app.py
+      run: flake8 --max-line-length=88 --statistics --count app.py
 
-    # Generate version using GitHub Run Number
+    ##############################
+    # Set Docker Image Tag
+    ##############################
     - name: Set Docker image tag
       id: vars
       run: |
         TAG="v1.0.${{ github.run_number }}"
         echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
 
-    ##########################
+    ##############################
     # DockerHub Section
-    ##########################
+    ##############################
     - name: Login to DockerHub
       uses: docker/login-action@v3
       with:
@@ -53,9 +70,18 @@ jobs:
         docker push ivosalumbides/simple-notes-app-backend:${{ env.IMAGE_TAG }}
         docker push ivosalumbides/simple-notes-app-backend:latest
 
-    ##########################
+    ##############################
+    # Security Scan using Trivy
+    ##############################
+    - name: Security Scan (Trivy)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ivosalumbides/simple-notes-app-backend:${{ env.IMAGE_TAG }}
+      continue-on-error: true  # (safe mode: hindi i-fail ang pipeline kapag may CVEs, for learning stage)
+
+    ##############################
     # GitHub OCI Section
-    ##########################
+    ##############################
     - name: Login to GitHub OCI Registry
       uses: docker/login-action@v3
       with:
